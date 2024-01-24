@@ -5,9 +5,6 @@ import subprocess
 from pathlib import Path
 
 """
-
-
-
 limitation:
 process all filenames with dash -> space   *-*.md
 
@@ -17,13 +14,13 @@ https://forum.obsidian.md/t/github-wiki-kinda-works-to-host-the-wiki/2980
 branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD",
                                  shell=True)
 
-if branch == b"main\n":
+if branch == b"master\n":
     sys.exit(0)
 
 header, *filenames = subprocess.check_output("git log -1 --stat --oneline --name-only",
                                               shell=True).splitlines()
 
-subprocess.run("git checkout main&&git merge --strategy-option theirs obsidian",
+subprocess.run("git checkout master&&git merge --strategy-option theirs obsidian",
                 shell=True)
 
 files = [Path(f.decode()) for f in filenames if f.endswith(b".md")]
