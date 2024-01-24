@@ -1,5 +1,6 @@
 # Obsidian Github wiki experiment
 This repository was made to explore the possibility to use git hooks to maintain a github wiki using obsidian.
+See the wiki [here](https://github.com/BjornFJohansson/obsidian_git_experiment/wiki).
 The syntax is _almost_ the same, but differ in some ways, specificlly:
 
 A links in Obsidian: [[fileName|linkTitle]]
