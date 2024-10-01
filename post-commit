@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+import sys
+import re
+import subprocess
+from pathlib import Path
+# from urllib.parse import quote
+# https://help.obsidian.md/Files+and+folders/Accepted+file+formats
+
+print("post-commit")
+
+branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD",
+                                 shell=True,
+                                 timeout=300)
+
+msg = subprocess.check_output("git log -1 --pretty=%B",
+                              shell=True,
+                              timeout=300).strip().decode()
+
+script, *args = sys.argv
+
+arg = args.pop() if args else None
+
+if arg == "obsidian":
+    arg = None
+
+if arg:
+    if branch != bytes(arg + "\n", "utf8"):
+        print("Not on given branch.")
+        sys.exit(0)
+    print("On given branch", arg)
+    mdfiles = sorted(Path(".").glob("**/*.md"))
+    # mdfiles = sorted(Path("../..").glob("**/*.md"))
+    print("All files:")
+    print(mdfiles)
+else:
+    if branch != b"obsidian\n":
+        print("Branch is not obsidian")
+        sys.exit(0)
+    print(f"On {branch}")
+    header, *filenames = subprocess.check_output("git log -1 --stat --oneline --name-only",
+                                                 shell=True).splitlines()
+    allfiles = [Path(f.decode()) for f in filenames]
+    mdfiles = [p for p in allfiles if p.suffix == ".md" and p.is_file()]
+    otherfiles = [p for p in allfiles if p.suffix != ".md" and p.is_file()]
+
+    subprocess.run("git checkout ob_to_gh",
+                   shell=True,
+                   timeout=300,
+                   check=True)
+
+    paths = " ".join(f"'{str(p)}'" for p in mdfiles + otherfiles)
+
+    subprocess.run(f"git checkout obsidian -- {paths}",
+                   shell=True,
+                   timeout=300,
+                   check=True)
+
+
+print("[[file name|link text]] --> [[link text|file-name]]")
+
+
+def switch_fn_linktext(m):
+    linktext = m.group(3)
+    pagename = m.group(2).replace(" ", "-")
+    sub = f"{m.group(1)}[[{linktext}|{pagename}]]"
+    print(sub)
+    return sub
+
+
+for file in mdfiles:
+    original_text = file.read_text()
+    #                 "([^!])\[\[([^#|[]+?)\|([^#|[]+?)\]\]"
+    newtext = re.sub(r"([^!])\[\[([^[]+?)\|([^#|[]+?)\]\]", switch_fn_linktext, original_text)
+    if newtext != original_text:
+        pass
+        file.write_text(newtext)
+
+print("[[#Some header in the page|some text]] --> [some text](#some-header-in-the-page)")
+
+
+def links_to_header(m):
+    linktext = m.group(2)
+    pagename = m.group(1).replace(" ", "-").lower()
+    sub = f"[{linktext}]({pagename})"
+    print(m.group(0), sub)
+    return sub
+
+
+for file in mdfiles:
+    original_text = file.read_text()
+    # original_text = "  [[#Some header in the page|some text]]"
+    newtext = re.sub(r"[^!]\[\[(#[^#|[]+?)\|([^#|[]+?)\]\]", links_to_header, original_text)
+    if newtext != original_text:
+        pass
+        file.write_text(newtext)
+
+
+print("![[some image.png]] --> [[some image.png]]")
+
+
+def remove_exclamation_mark(m):
+    sub = " " + m.group(2)  # .replace(" ", "-")
+    print(sub)
+    return sub
+
+
+for file in mdfiles:
+    original_text = file.read_text()
+    # original_text = "[![[EGB24-20240705161734646.png]]](https://www.instagram.com/spettsart/?hl=en)" # "x![[some image.png]]"    # "([^[])!(\[\[.+\]\])"
+    newtext = re.sub(r"(!)(\[\[.+\]\])", remove_exclamation_mark, original_text)
+    if newtext != original_text:
+        pass
+        file.write_text(newtext)
+
+
+# for i, file in enumerate(mdfiles):
+#     quoted = quote(file.name, safe=" ():")
+#     if file.name != quoted:
+#         print("  name", file.name)
+#         print("rename", quoted)
+#         print(file)
+#         print()
+#         file.rename(quoted)
+#         mdfiles[i] = file
+
+
+if not arg:
+
+    commands = ("git add --all",
+                f"git commit -m '{msg}'",
+                "git checkout master",
+                "git pull",
+                "git merge --strategy-option theirs ob_to_gh",
+                "git push origin master",
+                "git checkout obsidian",)
+
+    for command in commands:
+        subprocess.run(command,
+                       shell=True,
+                       timeout=300,
+                       check=True)
