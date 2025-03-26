@@ -1,4 +1,2 @@
-# Obsidian vault git experiment
-
  [[imgage.ext]]
 [[title|filename]]
