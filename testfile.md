@@ -1,2 +1,0 @@
- [[imgage.ext]]
-[[title|filename]]
