@@ -48,7 +48,13 @@ else:
                    timeout=300,
                    check=True)
 
-    paths = " ".join(f"'{str(p)}'" for p in mdfiles + otherfiles)
+    paths = " ".join(str(p) for p in mdfiles + otherfiles)
+    
+    # debug print statements
+    # print(f"Current branch: {branch}")  # Print the current branch
+    # print(f"Files to checkout: {paths}") # Print the 'paths' variable
+    # print(f"MDFiles: {mdfiles}")
+    # print(f"Other Files: {otherfiles}")
 
     subprocess.run(f"git checkout obsidian -- {paths}",
                    shell=True,
@@ -127,11 +133,11 @@ for file in mdfiles:
 if not arg:
 
     commands = ("git add --all",
-                f"git commit -m '{msg}'",
-                "git checkout master",
+                f"git commit -m \"{msg}\"",  
+                "git checkout main",
                 "git pull",
                 "git merge --strategy-option theirs ob_to_gh",
-                "git push origin master",
+                "git push origin main",
                 "git checkout obsidian",)
 
     for command in commands:
