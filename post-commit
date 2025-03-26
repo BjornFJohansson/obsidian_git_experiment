@@ -134,10 +134,10 @@ if not arg:
 
     commands = ("git add --all",
                 f"git commit -m \"{msg}\"",  
-                "git checkout main",
+                "git checkout master",
                 "git pull",
                 "git merge --strategy-option theirs ob_to_gh",
-                "git push origin main",
+                "git push origin master",
                 "git checkout obsidian",)
 
     for command in commands:
