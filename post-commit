@@ -6,87 +6,126 @@ from pathlib import Path
 # from urllib.parse import quote
 # https://help.obsidian.md/Files+and+folders/Accepted+file+formats
 
-print("post-commit")
+print("RUNNING POST-COMMIT...")
 
+# subprocesses to execute git command and return output, vars hold output
+# retrieve name of current branch
 branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD",
                                  shell=True,
                                  timeout=300)
-
+# retrieve commit message of last commit
 msg = subprocess.check_output("git log -1 --pretty=%B",
                               shell=True,
                               timeout=300).strip().decode()
 
-script, *args = sys.argv
+# assign script name to script, assign any additional argumnents to args
+script, *args = sys.argv # contains list of CLAs passed to script
 
+# retrieve last argument from args
 arg = args.pop() if args else None
 
 if arg == "obsidian":
     arg = None
 
+# if branch argument IS provided
 if arg:
+    # if current branch !== given argument branch, exit
     if branch != bytes(arg + "\n", "utf8"):
         print("Not on given branch.")
         sys.exit(0)
     print("On given branch", arg)
+    
+    # find all .md files in current dir and subdirs, assign list to mdfiles
     mdfiles = sorted(Path(".").glob("**/*.md"))
     # mdfiles = sorted(Path("../..").glob("**/*.md"))
     print("All files:")
     print(mdfiles)
+
+# if  branch argument IS NOT provided
 else:
+    # if branch is not obsidian branch, exit
     if branch != b"obsidian\n":
         print("Branch is not obsidian")
         sys.exit(0)
     print(f"On {branch}")
+
+    # retrieve list of files changed in last commit
+    # first line assigned to header, and rest to filenames
     header, *filenames = subprocess.check_output("git log -1 --stat --oneline --name-only",
                                                  shell=True).splitlines()
+    # convert file names to Path objects, assign to allfiles
     allfiles = [Path(f.decode()) for f in filenames]
+    # assign file names from allfiles WITH .md extension, to mdfiles
     mdfiles = [p for p in allfiles if p.suffix == ".md" and p.is_file()]
+    # assign file names from allfiles WITHOUT .md extension, to otherfiles
     otherfiles = [p for p in allfiles if p.suffix != ".md" and p.is_file()]
 
+    # checkout to ob_to_gh
     subprocess.run("git checkout ob_to_gh",
                    shell=True,
                    timeout=300,
                    check=True)
 
-    paths = " ".join(f"'{str(p)}'" for p in mdfiles + otherfiles)
+    # join file paths in mdfiles and otherfiles into space-separated string, assign to paths
+    paths = " ".join(str(p) for p in mdfiles + otherfiles)
+    
+    # DEBUG STATEMENTS
+    #---- print(f"Current branch: {branch}")  # Print the current branch
+    #---- print(f"Files to checkout: {paths}") # Print the 'paths' variable
+    #---- print(f"MDFiles: {mdfiles}")
+    #---- print(f"Other Files: {otherfiles}")
 
+    # checkout files, specified in paths, from obsidian branch to ob_to_gh branch
     subprocess.run(f"git checkout obsidian -- {paths}",
                    shell=True,
                    timeout=300,
                    check=True)
 
 
+# PAGE LINK CONVERSION
+# start message
 print("[[file name|link text]] --> [[link text|file-name]]")
 
-
+# define function to modify Obsidian page links
+# m represents argument
 def switch_fn_linktext(m):
+    # access third captured group from regex match, expecting link text from Obsidian link
     linktext = m.group(3)
+    # access second captured group from regex match, expecting file name from Obsidian link
+    # replace any spaces in pagename with hyphens
     pagename = m.group(2).replace(" ", "-")
+    # form replacement string (first captured group + transformed wikilink)
     sub = f"{m.group(1)}[[{linktext}|{pagename}]]"
     print(sub)
     return sub
 
-
+# loop to iterate through mdfiles, applying function switch_fn_linktext
 for file in mdfiles:
+    # store original text
     original_text = file.read_text()
+    # apply function using re.sub to perform substitutions
     #                 "([^!])\[\[([^#|[]+?)\|([^#|[]+?)\]\]"
     newtext = re.sub(r"([^!])\[\[([^[]+?)\|([^#|[]+?)\]\]", switch_fn_linktext, original_text)
     if newtext != original_text:
         pass
         file.write_text(newtext)
 
+# HEADER LINK CONVERSION
+# start message
 print("[[#Some header in the page|some text]] --> [some text](#some-header-in-the-page)")
 
-
+# define function to modify Obsidian header links
 def links_to_header(m):
     linktext = m.group(2)
     pagename = m.group(1).replace(" ", "-").lower()
+    # form replacement string
     sub = f"[{linktext}]({pagename})"
     print(m.group(0), sub)
     return sub
 
 
 for file in mdfiles:
+    # store original text
     original_text = file.read_text()
     # original_text = "  [[#Some header in the page|some text]]"
     newtext = re.sub(r"[^!]\[\[(#[^#|[]+?)\|([^#|[]+?)\]\]", links_to_header, original_text)
@@ -95,9 +134,11 @@ for file in mdfiles:
         file.write_text(newtext)
 
 
+# IMAGE LINK CONVERSION
+# start message
 print("![[some image.png]] --> [[some image.png]]")
 
-
+# define function to modify Obsidian image links
 def remove_exclamation_mark(m):
     sub = " " + m.group(2)  # .replace(" ", "-")
     print(sub)
@@ -124,10 +165,11 @@ for file in mdfiles:
 #         mdfiles[i] = file
 
 
+# if no branch argument provided
 if not arg:
 
     commands = ("git add --all",
-                f"git commit -m '{msg}'",
+                f"git commit -m \"{msg}\"",  
                 "git checkout master",
                 "git pull",
                 "git merge --strategy-option theirs ob_to_gh",
