@@ -1,15 +1,12 @@
 # Syncing Obsidian & GitHub Wiki
 
-This repository was made to explore the possibility to use git hooks to maintain a GitHub Wiki using obsidian.
+This repository was made to explore the possibility to use git hooks to maintain a [GitHub Wiki](https://docs.github.com/en/communities/documenting-your-project-with-wikis/about-wikis) using the amazing note-taking, markdown-editing, and second-brain-making app [Obsidian](https://obsidian.md/). 
 
-Public GitHub repositories come with a [wiki](https://docs.github.com/en/communities/documenting-your-project-with-wikis/about-wikis).
+This repository has a GitHub Wiki, accessible [here](https://github.com/BjornFJohansson/obsidian_git_experiment/wiki), or by clicking the **Wiki** link at the top of the page.
 
-This repository has a GitHub Wiki [here](https://github.com/BjornFJohansson/obsidian_git_experiment/wiki).
-Or click the **Wiki** link at the top of the page.
+BTW, Obsidian can be confusing, but it's worth it! Here's a link to learn more about using it :) ([YouTube](https://youtu.be/QXIa0NAycGo?si=q2-NtNW7xvjYKZSy)).
 
-[Obsidian.md ](https://obsidian.md) is a great tool to maintain a local markdown wiki and knowledge platform for notes ([YouTube](https://youtu.be/QXIa0NAycGo?si=q2-NtNW7xvjYKZSy)).
-
-## Key Differences between Obsidian and GitHub Wiki
+## Key Differences Between Obsidian and GitHub Wiki
 While both Obsidian and GitHub Wiki claim to use Markdown, the syntax is not quite the same,  differing in small but important ways, namely:
 ### WikiLinks
 - Obsidian: `[[page|custom display text]]`
@@ -23,7 +20,8 @@ This is important in Obsidian for how the GUI autocomplete these links
 ### Header Links
 - Obsidian: `[[#Some Header|custom display text]]`
 - GitHub Wiki: `[custom display text](#some-header)`
-### How this works
+
+## How The Script Works
 This is a Python script called "post-commit" which must be placed in the .git/hooks folder.
 
 When committing, the post-commit Git hook is activated. Specifically, this script will only have an effect if the change is committed while in the "obsidian" branch.
@@ -51,10 +49,11 @@ Look [here](https://forum.obsidian.md/t/github-wiki-kinda-works-to-host-the-wiki
 
 > [!WARNING]
 > While I use this everyday to maintain [this](https://github.com/MetabolicEngineeringGroupCBMA/MetabolicEngineeringGroupCBMA.github.io/wiki) wiki, this was not tested on other use cases.
-> **Back up** before using this on your repositories. Even better, run through the test below to make sure it works on your system first! This may not even be the best way to solve this problem.
+> ***Back up*** before using this on your repositories. Even better, run through the test below to make sure it works on your system first! This may not even be the best way to solve this problem.
 > 
-~ BjornFJohansson
-## How you can test this:
+~ [BjornFJohansson](https://github.com/BjornFJohansson)
+
+## How You Can Test It
 1. Fork this repository.
 2. Clone the forked repo.
 3. Create the wiki on the forked repo using the **Wiki** tab.
@@ -104,3 +103,18 @@ Header: [custom display text](#some-header)
 ```
 
 7. Done!
+
+## How You Can Use It
+Before you do anything, ***back up*** your Obsidian folder. Just create a copy of the Obsidian vault folder if you need to.
+1. Create a GitHub Wiki for your GitHub repo using the **Wiki** tab.
+2. Clone the created wiki, typically in the format (*username*/*repository*.wiki.git). The clone link can also be found on the Wiki page under the sidebar on the right.
+3. Download and move the **.gitignore** file to the new folder.
+4. Download and move the **post-commit** script file into the .git/hooks/ directory within the same folder. You may need to reveal hidden items in whichever file browser or interface you're using.
+6. Rename the "main" branch to "master" if it isn't already.
+7. Create two branches: "ob_to_gh" and "obsidian".
+8. Switch to the "obsidian" branch.
+9. Open **Obsidian** and *open the cloned folder* as a vault. Do not create a new vault.
+10. Do whatever you'd like to in Obsidian. Make new notes, add some links, etc.
+11. Stage and commit the changes (while still in the "obsidian" branch). The script should automatically ultimately merge the changes into "master" and push it to the wiki. It will return to "obsidian" after.
+12. View your changes on GitHub Wiki.
+13. Celebrate! 🎉
