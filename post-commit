@@ -47,7 +47,7 @@ else:
     if branch != b"obsidian\n":
         print("Branch is not obsidian")
         sys.exit(0)
-    print(f"On {branch}")
+    print(f"On {branch.decode().strip()}") # decode for cleaner print
 
     # retrieve list of files changed in last commit
     # first line assigned to header, and rest to filenames
@@ -57,6 +57,7 @@ else:
     allfiles = [Path(f.decode()) for f in filenames]
     # assign file names from allfiles WITH .md extension, to mdfiles
     mdfiles = [p for p in allfiles if p.suffix == ".md" and p.is_file()]
+  
     # assign file names from allfiles WITHOUT .md extension, to otherfiles
     otherfiles = [p for p in allfiles if p.suffix != ".md" and p.is_file()]
 
@@ -66,20 +67,29 @@ else:
                    timeout=300,
                    check=True)
 
+  
     # join file paths in mdfiles and otherfiles into space-separated string, assign to paths
-    paths = " ".join(str(p) for p in mdfiles + otherfiles)
+    # manually wrap each path in double quotes to handle spaces when shell=True.
+    # note: this is kind of a hack fix, filenames with quotes or other complex shell characters are not accounted for
+    paths = " ".join(f'"{str(p)}"' for p in mdfiles + otherfiles)
     
-    # DEBUG STATEMENTS
-    #---- print(f"Current branch: {branch}")  # Print the current branch
-    #---- print(f"Files to checkout: {paths}") # Print the 'paths' variable
+    # DEBUG STATEMENTS (from original script)
+    #---- print(f"Current branch: {branch}")
+    #---- print(f"Files to checkout: {paths}")
     #---- print(f"MDFiles: {mdfiles}")
     #---- print(f"Other Files: {otherfiles}")
 
     # checkout files, specified in paths, from obsidian branch to ob_to_gh branch
-    subprocess.run(f"git checkout obsidian -- {paths}",
-                   shell=True,
-                   timeout=300,
-                   check=True)
+    # 'paths' string where each path is individually quoted
+    if paths: # only runs if there are actual paths to checkout
+        subprocess.run(f"git checkout obsidian -- {paths}",
+                       shell=True,
+                       timeout=300,
+                       check=True)
+    elif mdfiles or otherfiles: # this case means files were listed but paths string became empty (e.g. error in quoting or file list logic)
+        print("Warning: Files were identified, but the 'paths' string for git is unexpectedly empty. Skipping checkout from obsidian.")
+    else: # no mdfiles or otherfiles found
+        print("No specific files identified in the last commit to checkout from obsidian branch.")
 
 
 # PAGE LINK CONVERSION
