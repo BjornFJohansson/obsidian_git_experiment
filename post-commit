@@ -1,22 +1,50 @@
+
 #!/usr/bin/env python3
+# Simple logging system additions
 import sys
 import re
 import subprocess
 from pathlib import Path
+from datetime import datetime
+import os
 # from urllib.parse import quote
 # https://help.obsidian.md/Files+and+folders/Accepted+file+formats
 
-print("RUNNING POST-COMMIT...")
+# --- Logging Setup ---
+LOG_FILE = Path("sync.log")
+MAX_LOG_SIZE = 1 * 1024 * 1024  # 1MB
+def rotate_log():
+    if LOG_FILE.exists() and LOG_FILE.stat().st_size > MAX_LOG_SIZE:
+        backup = LOG_FILE.with_suffix(".log.1")
+        if backup.exists():
+            backup.unlink()
+        LOG_FILE.rename(backup)
+        LOG_FILE.write_text("")
+
+def log(msg, level="INFO"):
+    rotate_log()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{timestamp}] [{level}] {msg}\n"
+    with LOG_FILE.open("a", encoding="utf-8") as f:
+        f.write(entry)
+    if level == "ERROR":
+        print(entry, file=sys.stderr)
+    else:
+        print(entry, end="")
+
+log("RUNNING POST-COMMIT...")
+
 
 # subprocesses to execute git command and return output, vars hold output
-# retrieve name of current branch
-branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD",
-                                 shell=True,
-                                 timeout=300)
-# retrieve commit message of last commit
-msg = subprocess.check_output("git log -1 --pretty=%B",
-                              shell=True,
-                              timeout=300).strip().decode()
+try:
+    branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD", shell=True, timeout=300)
+    msg = subprocess.check_output("git log -1 --pretty=%B", shell=True, timeout=300).strip().decode()
+    log(f"Current branch: {branch.decode().strip()}")
+    log(f"Last commit message: {msg}")
+except Exception as e:
+    log(f"Failed to get branch or commit message: {e}", level="ERROR")
+    sys.exit(1)
+
 
 # assign script name to script, assign any additional argumnents to args
 script, *args = sys.argv # contains list of CLAs passed to script
@@ -27,74 +55,68 @@ arg = args.pop() if args else None
 if arg == "obsidian":
     arg = None
 
+
 # if branch argument IS provided
 if arg:
     # if current branch !== given argument branch, exit
     if branch != bytes(arg + "\n", "utf8"):
-        print("Not on given branch.")
+        log(f"Not on given branch: {arg}", level="ERROR")
         sys.exit(0)
-    print("On given branch", arg)
-    
-    # find all .md files in current dir and subdirs, assign list to mdfiles
+    log(f"On given branch: {arg}")
     mdfiles = sorted(Path(".").glob("**/*.md"))
-    # mdfiles = sorted(Path("../..").glob("**/*.md"))
-    print("All files:")
-    print(mdfiles)
+    log(f"All files: {mdfiles}")
+
 
 # if  branch argument IS NOT provided
 else:
     # if branch is not obsidian branch, exit
     if branch != b"obsidian\n":
-        print("Branch is not obsidian")
+        log("Branch is not obsidian", level="ERROR")
         sys.exit(0)
-    print(f"On {branch.decode().strip()}") # decode for cleaner print
+    log(f"On {branch.decode().strip()}")
 
     # retrieve list of files changed in last commit
-    # first line assigned to header, and rest to filenames
-    header, *filenames = subprocess.check_output("git log -1 --stat --oneline --name-only",
-                                                 shell=True).splitlines()
-    # convert file names to Path objects, assign to allfiles
-    allfiles = [Path(f.decode()) for f in filenames]
-    # assign file names from allfiles WITH .md extension, to mdfiles
-    mdfiles = [p for p in allfiles if p.suffix == ".md" and p.is_file()]
+    try:
+        header, *filenames = subprocess.check_output("git log -1 --stat --oneline --name-only", shell=True).splitlines()
+        allfiles = [Path(f.decode()) for f in filenames]
+        mdfiles = [p for p in allfiles if p.suffix == ".md" and p.is_file()]
+        log(f"Files in last commit: {allfiles}")
+    except Exception as e:
+        log(f"Failed to get files from last commit: {e}", level="ERROR")
+        sys.exit(1)
   
     # assign file names from allfiles WITHOUT .md extension, to otherfiles
     otherfiles = [p for p in allfiles if p.suffix != ".md" and p.is_file()]
 
     # checkout to ob_to_gh
-    subprocess.run("git checkout ob_to_gh",
-                   shell=True,
-                   timeout=300,
-                   check=True)
+    try:
+        subprocess.run("git checkout ob_to_gh", shell=True, timeout=300, check=True)
+        log("Checked out to ob_to_gh branch.")
+    except Exception as e:
+        log(f"Failed to checkout ob_to_gh: {e}", level="ERROR")
+        sys.exit(1)
 
-  
     # join file paths in mdfiles and otherfiles into space-separated string, assign to paths
     # manually wrap each path in double quotes to handle spaces when shell=True.
     # note: this is kind of a hack fix, filenames with quotes or other complex shell characters are not accounted for
     paths = " ".join(f'"{str(p)}"' for p in mdfiles + otherfiles)
-    
-    # DEBUG STATEMENTS (from original script)
-    #---- print(f"Current branch: {branch}")
-    #---- print(f"Files to checkout: {paths}")
-    #---- print(f"MDFiles: {mdfiles}")
-    #---- print(f"Other Files: {otherfiles}")
 
     # checkout files, specified in paths, from obsidian branch to ob_to_gh branch
-    # 'paths' string where each path is individually quoted
-    if paths: # only runs if there are actual paths to checkout
-        subprocess.run(f"git checkout obsidian -- {paths}",
-                       shell=True,
-                       timeout=300,
-                       check=True)
-    elif mdfiles or otherfiles: # this case means files were listed but paths string became empty (e.g. error in quoting or file list logic)
-        print("Warning: Files were identified, but the 'paths' string for git is unexpectedly empty. Skipping checkout from obsidian.")
-    else: # no mdfiles or otherfiles found
-        print("No specific files identified in the last commit to checkout from obsidian branch.")
+    if paths:
+        try:
+            subprocess.run(f"git checkout obsidian -- {paths}", shell=True, timeout=300, check=True)
+            log(f"Checked out files from obsidian: {paths}")
+        except Exception as e:
+            log(f"Failed to checkout files from obsidian: {e}", level="ERROR")
+    elif mdfiles or otherfiles:
+        log("Warning: Files were identified, but the 'paths' string for git is unexpectedly empty. Skipping checkout from obsidian.", level="ERROR")
+    else:
+        log("No specific files identified in the last commit to checkout from obsidian branch.")
 
 
 # PAGE LINK CONVERSION
 # start message
-print("[[file name|link text]] --> [[link text|file-name]]")
+log("[[file name|link text]] --> [[link text|file-name]]")
 
 # define function to modify Obsidian page links
 # m represents argument
@@ -106,7 +128,7 @@ def switch_fn_linktext(m):
     pagename = m.group(2).replace(" ", "-")
     # form replacement string (first captured group + transformed wikilink)
     sub = f"{m.group(1)}[[{linktext}|{pagename}]]"
-    print(sub)
+    log(f"Page link conversion: {sub}")
     return sub
 
 # loop to iterate through mdfiles, applying function switch_fn_linktext
@@ -122,7 +144,7 @@ for file in mdfiles:
 
 # HEADER LINK CONVERSION
 # start message
-print("[[#Some header in the page|some text]] --> [some text](#some-header-in-the-page)")
+log("[[#Some header in the page|some text]] --> [some text](#some-header-in-the-page)")
 
 # define function to modify Obsidian header links
 def links_to_header(m):
@@ -130,7 +152,7 @@ def links_to_header(m):
     pagename = m.group(1).replace(" ", "-").lower()
     # form replacement string
     sub = f"[{linktext}]({pagename})"
-    print(m.group(0), sub)
+    log(f"Header link conversion: {m.group(0)} -> {sub}")
     return sub
 
 
@@ -146,12 +168,12 @@ for file in mdfiles:
 
 # IMAGE LINK CONVERSION
 # start message
-print("![[some image.png]] --> [[some image.png]]")
+log("![[some image.png]] --> [[some image.png]]")
 
 # define function to modify Obsidian image links
 def remove_exclamation_mark(m):
     sub = " " + m.group(2)  # .replace(" ", "-")
-    print(sub)
+    log(f"Image link conversion: {sub}")
     return sub
 
 
@@ -187,7 +209,8 @@ if not arg:
                 "git checkout obsidian",)
 
     for command in commands:
-        subprocess.run(command,
-                       shell=True,
-                       timeout=300,
-                       check=True)
+        try:
+            subprocess.run(command, shell=True, timeout=300, check=True)
+            log(f"Ran command: {command}")
+        except Exception as e:
+            log(f"Failed to run command '{command}': {e}", level="ERROR")
