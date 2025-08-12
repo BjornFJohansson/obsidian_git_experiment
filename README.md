@@ -1,5 +1,4 @@
-# ![icon](https://github.com/ObsiWiki/ObsiWiki/blob/main/obsiwiki_small.png?raw=true)
-# Syncing Obsidian & GitHub Wiki
+# ![icon](https://github.com/ObsiWiki/ObsiWiki/blob/main/obsiwiki_small.png?raw=true) Syncing Obsidian & GitHub Wiki
 
 This repository was made to explore the possibility to use git hooks to maintain a [GitHub Wiki](https://docs.github.com/en/communities/documenting-your-project-with-wikis/about-wikis) using the amazing note-taking, markdown-editing, and second-brain-making app [Obsidian](https://obsidian.md/). 
 
